@@ -19,7 +19,7 @@ pub enum ProviderFormat {
     Mrs,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct RuleProviderCommon {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub format: Option<ProviderFormat>,
@@ -28,7 +28,7 @@ pub struct RuleProviderCommon {
     pub behavior: RuleSetBehavior,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct HttpRuleProvider {
     pub url: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -57,9 +57,10 @@ pub struct InlineRuleProvider {
     pub common: RuleProviderCommon,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum RuleSetBehavior {
+    #[default]
     Domain,
     Ipcidr,
     Classical,
