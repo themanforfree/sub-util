@@ -10,11 +10,14 @@ pub enum RuleTag {
     DomainSuffix,
     DomainRegex,
     DomainKeyword,
+    #[serde(rename = "IP-CIDR")]
     IpCIDR,
+    #[serde(rename = "IP-CIDR6")]
     IpCIDR6,
     IpAsn,
     RuleSet,
-    GeoIp,
+    #[serde(rename = "GEOIP")]
+    GEOIP,
     Match,
 }
 
@@ -30,7 +33,7 @@ impl FromStr for RuleTag {
             "IP-CIDR6" => Ok(RuleTag::IpCIDR6),
             "IP-ASN" => Ok(RuleTag::IpAsn),
             "RULE-SET" => Ok(RuleTag::RuleSet),
-            "GEOIP" => Ok(RuleTag::GeoIp),
+            "GEOIP" => Ok(RuleTag::GEOIP),
             "MATCH" => Ok(RuleTag::Match),
             _ => Err(format!("invalid rule tag: {}", s)),
         }
@@ -48,7 +51,7 @@ impl std::fmt::Display for RuleTag {
             RuleTag::IpCIDR6 => write!(f, "IP-CIDR6"),
             RuleTag::IpAsn => write!(f, "IP-ASN"),
             RuleTag::RuleSet => write!(f, "RULE-SET"),
-            RuleTag::GeoIp => write!(f, "GEOIP"),
+            RuleTag::GEOIP => write!(f, "GEOIP"),
             RuleTag::Match => write!(f, "MATCH"),
         }
     }

@@ -14,6 +14,7 @@ pub enum RuleCfg {
 #[derive(Debug, Clone, Deserialize)]
 pub struct RuleSingleCfg {
     pub tag: RuleTag,
+    #[serde(default)]
     pub value: String,
     pub target: String,
 }
