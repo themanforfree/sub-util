@@ -1,9 +1,38 @@
 use serde::Deserialize;
-use std::{collections::HashMap, io, path::Path};
+use std::{collections::HashMap, fmt, io, path::Path};
 
 use crate::{ProxyGroup, Rule, RuleSetBehavior, RuleTag};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
+pub enum Error {
+    Io(io::Error),
+    Toml(toml::de::Error),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::Io(err) => write!(f, "io error: {err}"),
+            Error::Toml(err) => write!(f, "toml error: {err}"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
+impl From<io::Error> for Error {
+    fn from(value: io::Error) -> Self {
+        Self::Io(value)
+    }
+}
+
+impl From<toml::de::Error> for Error {
+    fn from(value: toml::de::Error) -> Self {
+        Self::Toml(value)
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "kebab-case")]
 pub enum RuleCfg {
@@ -29,7 +58,7 @@ impl From<RuleSingleCfg> for Rule {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct RuleSetCfg {
     pub name: String,
     pub url: String,
@@ -37,7 +66,7 @@ pub struct RuleSetCfg {
     pub target: String,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct AppConfig {
     #[serde(default)]
@@ -49,8 +78,9 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    pub fn load_from_file(path: impl AsRef<Path>) -> io::Result<Self> {
+    pub fn load_from_file(path: impl AsRef<Path>) -> Result<Self, Error> {
         let data = std::fs::read(path)?;
-        toml::from_slice(&data).map_err(io::Error::other)
+        let cfg = toml::from_slice(&data)?;
+        Ok(cfg)
     }
 }

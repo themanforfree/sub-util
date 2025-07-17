@@ -1,23 +1,44 @@
-use axum::{Router, extract::Query, routing::get};
+use std::{path::PathBuf, process::exit};
+
+use axum::{extract::Query, routing::get, Extension, Router};
+use clap::Parser;
 use serde::Deserialize;
-use sub_util::{AppConfig, generate_clash_config};
+use sub_util::{generate_clash_config, AppConfig};
+use tracing::error;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, default_value = "config.toml")]
+    config: PathBuf,
+
+    #[arg(short, long, default_value = "0.0.0.0:3000")]
+    bind: String,
+}
 
 #[derive(Deserialize)]
 struct QueryParams {
     url: Option<String>,
 }
 
-async fn hello_world(Query(params): Query<QueryParams>) -> String {
-    let mut app_config = AppConfig::load_from_file("config.toml").unwrap();
-
+async fn hello_world(
+    Extension(mut app_config): Extension<AppConfig>,
+    Query(params): Query<QueryParams>,
+) -> String {
     // 如果提供了 url 参数，替换 proxy provider
     if let Some(url) = params.url {
         app_config.proxies.insert("miaona".to_string(), url);
     }
 
     let clash_config = generate_clash_config(app_config);
-    serde_yaml::to_string(&clash_config).unwrap()
+    match serde_yaml::to_string(&clash_config) {
+        Ok(yaml) => yaml,
+        Err(err) => {
+            error!("Failed to serialize clash config: {}", err);
+            "Failed to generate clash config".to_string()
+        }
+    }
 }
 
 #[tokio::main]
@@ -37,12 +58,29 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let arg1 = std::env::args().nth(1);
-    let bind = arg1.as_deref().unwrap_or("0.0.0.0:3000").to_string();
-    let router = Router::new().route("/", get(hello_world));
+    let args = Args::parse();
+    let app_config = match AppConfig::load_from_file(args.config) {
+        Ok(config) => config,
+        Err(err) => {
+            error!("Failed to load config: {}", err);
+            exit(1);
+        }
+    };
+    let router = Router::new()
+        .route("/", get(hello_world))
+        .layer(Extension(app_config));
 
-    tracing::info!("Server is running on http://{}", bind);
-    let listener = tokio::net::TcpListener::bind(bind).await.unwrap();
+    tracing::info!("Server is running on http://{}", &args.bind);
+    let listener = match tokio::net::TcpListener::bind(&args.bind).await {
+        Ok(listener) => listener,
+        Err(err) => {
+            error!("Failed to bind to address: {}", err);
+            exit(1);
+        }
+    };
 
-    axum::serve(listener, router).await.unwrap();
+    if let Err(err) = axum::serve(listener, router).await {
+        error!("Server error: {}", err);
+        exit(1);
+    }
 }
