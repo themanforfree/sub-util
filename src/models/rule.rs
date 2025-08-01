@@ -35,7 +35,7 @@ impl FromStr for RuleTag {
             "RULE-SET" => Ok(RuleTag::RuleSet),
             "GEOIP" => Ok(RuleTag::GEOIP),
             "MATCH" => Ok(RuleTag::Match),
-            _ => Err(format!("invalid rule tag: {}", s)),
+            _ => Err(format!("invalid rule tag: {s}")),
         }
     }
 }

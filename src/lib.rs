@@ -25,10 +25,16 @@ pub enum ConfigError {
 impl std::fmt::Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ConfigError::InvalidSubscriptionUrl(url) => write!(f, "Invalid subscription URL: {}", url),
-            ConfigError::ProxyGroupGenerationFailed(msg) => write!(f, "Proxy group generation failed: {}", msg),
-            ConfigError::RuleProcessingFailed(msg) => write!(f, "Rule processing failed: {}", msg),
-            ConfigError::ConfigValidationFailed(msg) => write!(f, "Config validation failed: {}", msg),
+            ConfigError::InvalidSubscriptionUrl(url) => {
+                write!(f, "Invalid subscription URL: {url}")
+            }
+            ConfigError::ProxyGroupGenerationFailed(msg) => {
+                write!(f, "Proxy group generation failed: {msg}")
+            }
+            ConfigError::RuleProcessingFailed(msg) => write!(f, "Rule processing failed: {msg}"),
+            ConfigError::ConfigValidationFailed(msg) => {
+                write!(f, "Config validation failed: {msg}")
+            }
         }
     }
 }
@@ -38,10 +44,10 @@ impl std::error::Error for ConfigError {}
 /// 生成 proxy providers
 fn generate_proxy_providers(
     proxies: &HashMap<String, String>,
-    provider_config: &Option<ProviderConfig>
+    provider_config: &Option<ProviderConfig>,
 ) -> HashMap<String, ProxyProvider> {
     let mut providers = HashMap::new();
-    
+
     for (name, url) in proxies {
         let health_check = HealthCheck {
             enable: true,
@@ -53,16 +59,14 @@ fn generate_proxy_providers(
                 .as_ref()
                 .and_then(|c| c.health_check_interval)
                 .unwrap_or(DEFAULT_HEALTH_CHECK_INTERVAL),
-            lazy: provider_config
-                .as_ref()
-                .and_then(|c| c.lazy),
+            lazy: provider_config.as_ref().and_then(|c| c.lazy),
         };
-        
+
         providers.insert(
             name.clone(),
             ProxyProvider::Http(HttpProxyProvider {
                 url: url.clone(),
-                path: Some(format!("./proxies/{}.yaml", name)),
+                path: Some(format!("./proxies/{name}.yaml")),
                 common: ProxyProviderCommon {
                     interval: provider_config
                         .as_ref()
@@ -80,25 +84,26 @@ fn generate_proxy_providers(
             }),
         );
     }
-    
+
     providers
 }
 
 pub fn generate_clash_config(app_config: AppConfig) -> Config {
     let mut config = Config::default();
-    
+
     // 应用默认配置
     apply_default_config(&mut config, &app_config.default_config);
-    
+
     // 生成 proxy providers
-    let proxy_providers = generate_proxy_providers(&app_config.proxies, &app_config.provider_config);
-    
+    let proxy_providers =
+        generate_proxy_providers(&app_config.proxies, &app_config.provider_config);
+
     // 生成地区代理组（如果启用）
     let region_groups = if let Some(region_config) = &app_config.region_groups {
         if region_config.enabled {
             ProxyGroupTemplateGenerator::generate_region_groups(
                 &proxy_providers.keys().cloned().collect::<Vec<_>>(),
-                region_config
+                region_config,
             )
         } else {
             Vec::new()
@@ -106,21 +111,19 @@ pub fn generate_clash_config(app_config: AppConfig) -> Config {
     } else {
         Vec::new()
     };
-    
+
     // 合并所有代理组
-    let all_groups = ProxyGroupTemplateGenerator::merge_with_user_groups(
-        region_groups,
-        app_config.groups
-    );
-    
+    let all_groups =
+        ProxyGroupTemplateGenerator::merge_with_user_groups(region_groups, app_config.groups);
+
     // 生成规则和规则提供者
     let (rule_providers, rules) = generate_rules_and_providers(&app_config.rules);
-    
+
     config.proxy_providers = Some(proxy_providers);
     config.proxy_groups = Some(all_groups);
     config.rule_providers = Some(rule_providers);
     config.rules = Some(rules);
-    
+
     config
 }
 
@@ -149,10 +152,12 @@ fn apply_default_config(config: &mut Config, default_config: &Option<DefaultConf
 }
 
 /// 生成规则和规则提供者
-fn generate_rules_and_providers(rules_config: &[RuleCfg]) -> (HashMap<String, RuleProvider>, Vec<Rule>) {
+fn generate_rules_and_providers(
+    rules_config: &[RuleCfg],
+) -> (HashMap<String, RuleProvider>, Vec<Rule>) {
     let mut rule_providers = HashMap::new();
     let mut rules = Vec::new();
-    
+
     for rule_cfg in rules_config {
         match rule_cfg {
             RuleCfg::Single(rule) => rules.push(rule.clone().into()),
@@ -178,7 +183,7 @@ fn generate_rules_and_providers(rules_config: &[RuleCfg]) -> (HashMap<String, Ru
             }
         }
     }
-    
+
     (rule_providers, rules)
 }
 
@@ -187,52 +192,64 @@ pub fn validate_app_config(app_config: &AppConfig) -> Result<(), ConfigError> {
     // 验证订阅 URL
     for (name, url) in &app_config.proxies {
         if !is_valid_url(url) {
-            return Err(ConfigError::InvalidSubscriptionUrl(format!("{}: {}", name, url)));
+            return Err(ConfigError::InvalidSubscriptionUrl(format!(
+                "{name}: {url}"
+            )));
         }
     }
-    
+
     // 验证地区代理组配置
     if let Some(region_config) = &app_config.region_groups {
         if region_config.enabled {
             for region in &region_config.regions {
                 if let Err(e) = ProxyGroupTemplateGenerator::validate_filter(&region.filter) {
-                    return Err(ConfigError::ProxyGroupGenerationFailed(format!("Invalid filter for region {}: {}", region.name, e)));
+                    return Err(ConfigError::ProxyGroupGenerationFailed(format!(
+                        "Invalid filter for region {}: {}",
+                        region.name, e
+                    )));
                 }
             }
         }
     }
-    
+
     // 获取所有可能的代理组名称（包括地区代理组）
     let available_groups = get_all_available_groups(app_config);
-    
+
     // 验证规则配置
     for rule_cfg in &app_config.rules {
         match rule_cfg {
             RuleCfg::Single(rule) => {
                 if rule.target.is_empty() {
-                    return Err(ConfigError::RuleProcessingFailed("Rule target cannot be empty".to_string()));
+                    return Err(ConfigError::RuleProcessingFailed(
+                        "Rule target cannot be empty".to_string(),
+                    ));
                 }
                 validate_rule_target(&rule.target, &available_groups)?;
             }
             RuleCfg::Set(rule_set) => {
                 if !is_valid_url(&rule_set.url) {
-                    return Err(ConfigError::RuleProcessingFailed(format!("Invalid rule set URL: {}", rule_set.url)));
+                    return Err(ConfigError::RuleProcessingFailed(format!(
+                        "Invalid rule set URL: {}",
+                        rule_set.url
+                    )));
                 }
                 if rule_set.target.is_empty() {
-                    return Err(ConfigError::RuleProcessingFailed("Rule set target cannot be empty".to_string()));
+                    return Err(ConfigError::RuleProcessingFailed(
+                        "Rule set target cannot be empty".to_string(),
+                    ));
                 }
                 validate_rule_target(&rule_set.target, &available_groups)?;
             }
         }
     }
-    
+
     Ok(())
 }
 
 /// 获取所有可用的代理组名称
 fn get_all_available_groups(app_config: &AppConfig) -> Vec<String> {
     let mut groups = Vec::new();
-    
+
     // 添加用户定义的代理组
     for group in &app_config.groups {
         match group {
@@ -243,7 +260,7 @@ fn get_all_available_groups(app_config: &AppConfig) -> Vec<String> {
             ProxyGroup::Relay(relay) => groups.push(relay.common.name.clone()),
         }
     }
-    
+
     // 添加地区代理组（如果启用）
     if let Some(region_config) = &app_config.region_groups {
         if region_config.enabled {
@@ -256,11 +273,11 @@ fn get_all_available_groups(app_config: &AppConfig) -> Vec<String> {
             }
         }
     }
-    
+
     // 添加内置的特殊目标
     groups.push("DIRECT".to_string());
     groups.push("REJECT".to_string());
-    
+
     groups
 }
 
@@ -270,15 +287,15 @@ fn validate_rule_target(target: &str, available_groups: &[String]) -> Result<(),
     if target == "DIRECT" || target == "REJECT" {
         return Ok(());
     }
-    
+
     // 检查是否是可用的代理组
     if available_groups.contains(&target.to_string()) {
         return Ok(());
     }
-    
+
     Err(ConfigError::RuleProcessingFailed(format!(
-        "Rule target '{}' is not a valid proxy group. Available groups: {}", 
-        target, 
+        "Rule target '{}' is not a valid proxy group. Available groups: {}",
+        target,
         available_groups.join(", ")
     )))
 }
@@ -291,36 +308,43 @@ pub fn validate_generated_config(config: &Config) -> Result<(), ConfigError> {
             match group {
                 ProxyGroup::Select(select) => {
                     if select.common.name.is_empty() {
-                        return Err(ConfigError::ConfigValidationFailed("Proxy group name cannot be empty".to_string()));
+                        return Err(ConfigError::ConfigValidationFailed(
+                            "Proxy group name cannot be empty".to_string(),
+                        ));
                     }
                 }
                 ProxyGroup::UrlTest(url_test) => {
                     if url_test.common.name.is_empty() {
-                        return Err(ConfigError::ConfigValidationFailed("Proxy group name cannot be empty".to_string()));
+                        return Err(ConfigError::ConfigValidationFailed(
+                            "Proxy group name cannot be empty".to_string(),
+                        ));
                     }
                     if url_test.common.url.is_none() {
-                        return Err(ConfigError::ConfigValidationFailed(format!("URL test group {} must have a test URL", url_test.common.name)));
+                        return Err(ConfigError::ConfigValidationFailed(format!(
+                            "URL test group {} must have a test URL",
+                            url_test.common.name
+                        )));
                     }
                 }
                 _ => {} // 其他类型的验证可以在这里添加
             }
         }
     }
-    
+
     // 验证 proxy providers
     if let Some(providers) = &config.proxy_providers {
         for (name, provider) in providers {
-            match provider {
-                ProxyProvider::Http(http_provider) => {
-                    if !is_valid_url(&http_provider.url) {
-                        return Err(ConfigError::ConfigValidationFailed(format!("Invalid provider URL for {}: {}", name, http_provider.url)));
-                    }
+            if let ProxyProvider::Http(http_provider) = provider {
+                let url = &http_provider.url;
+                if !is_valid_url(url) {
+                    return Err(ConfigError::ConfigValidationFailed(format!(
+                        "Invalid provider URL for {name}: {url}",
+                    )));
                 }
-                _ => {} // 其他类型的验证
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -333,20 +357,20 @@ fn is_valid_url(url: &str) -> bool {
 pub fn generate_clash_config_with_validation(app_config: AppConfig) -> Result<Config, ConfigError> {
     // 验证输入配置
     validate_app_config(&app_config)?;
-    
+
     // 生成配置
     let config = generate_clash_config(app_config);
-    
+
     // 验证生成的配置
     validate_generated_config(&config)?;
-    
+
     Ok(config)
 }
 
 /// 获取可用的地区代理组列表
 pub fn get_available_region_groups(app_config: &AppConfig) -> Vec<String> {
     let mut region_groups = Vec::new();
-    
+
     if let Some(region_config) = &app_config.region_groups {
         if region_config.enabled {
             let regions = ProxyGroupTemplateGenerator::get_merged_region_templates(region_config);
@@ -358,7 +382,7 @@ pub fn get_available_region_groups(app_config: &AppConfig) -> Vec<String> {
             }
         }
     }
-    
+
     region_groups
 }
 
@@ -372,21 +396,28 @@ pub fn is_region_group_target(target: &str, app_config: &AppConfig) -> bool {
 pub fn validate_rule_set_config(rule_set: &RuleSetCfg) -> Result<(), ConfigError> {
     // 验证 URL
     if !is_valid_url(&rule_set.url) {
-        return Err(ConfigError::RuleProcessingFailed(format!("Invalid rule set URL: {}", rule_set.url)));
+        return Err(ConfigError::RuleProcessingFailed(format!(
+            "Invalid rule set URL: {}",
+            rule_set.url
+        )));
     }
-    
+
     // 验证名称
     if rule_set.name.is_empty() {
-        return Err(ConfigError::RuleProcessingFailed("Rule set name cannot be empty".to_string()));
+        return Err(ConfigError::RuleProcessingFailed(
+            "Rule set name cannot be empty".to_string(),
+        ));
     }
-    
+
     // 验证更新间隔
     if let Some(interval) = rule_set.interval {
         if interval < 60 {
-            return Err(ConfigError::RuleProcessingFailed("Rule set update interval should be at least 60 seconds".to_string()));
+            return Err(ConfigError::RuleProcessingFailed(
+                "Rule set update interval should be at least 60 seconds".to_string(),
+            ));
         }
     }
-    
+
     Ok(())
 }
 
@@ -401,27 +432,28 @@ mod tests {
 
     fn create_test_app_config() -> AppConfig {
         let mut proxies = HashMap::new();
-        proxies.insert("test-provider".to_string(), "https://example.com/clash".to_string());
+        proxies.insert(
+            "test-provider".to_string(),
+            "https://example.com/clash".to_string(),
+        );
 
         AppConfig {
             proxies,
-            groups: vec![
-                ProxyGroup::Select(SelectGroup {
-                    common: ProxyGroupCommon {
-                        name: "Proxies".to_string(),
-                        proxies: Some(vec!["Auto".to_string(), "DIRECT".to_string()]),
-                        use_provider: None,
-                        url: None,
-                        interval: None,
-                        lazy: None,
-                        timeout: None,
-                        max_failed_times: None,
-                        disable_udp: None,
-                        icon: None,
-                        filter: None,
-                    },
-                }),
-            ],
+            groups: vec![ProxyGroup::Select(SelectGroup {
+                common: ProxyGroupCommon {
+                    name: "Proxies".to_string(),
+                    proxies: Some(vec!["Auto".to_string(), "DIRECT".to_string()]),
+                    use_provider: None,
+                    url: None,
+                    interval: None,
+                    lazy: None,
+                    timeout: None,
+                    max_failed_times: None,
+                    disable_udp: None,
+                    icon: None,
+                    filter: None,
+                },
+            })],
             rules: vec![
                 RuleCfg::Single(RuleSingleCfg {
                     tag: RuleTag::Domain,
@@ -438,14 +470,12 @@ mod tests {
             ],
             region_groups: Some(RegionGroupConfig {
                 enabled: true,
-                regions: vec![
-                    RegionTemplate {
-                        name: "HK".to_string(),
-                        display_name: Some("香港".to_string()),
-                        filter: "(?i)(hk|hong kong)".to_string(),
-                        icon: Some("🇭🇰".to_string()),
-                    },
-                ],
+                regions: vec![RegionTemplate {
+                    name: "HK".to_string(),
+                    display_name: Some("香港".to_string()),
+                    filter: "(?i)(hk|hong kong)".to_string(),
+                    icon: Some("🇭🇰".to_string()),
+                }],
                 create_auto_groups: true,
                 global_filter: None,
             }),
@@ -470,7 +500,7 @@ mod tests {
     fn test_generate_proxy_providers() {
         let mut proxies = HashMap::new();
         proxies.insert("test".to_string(), "https://example.com/clash".to_string());
-        
+
         let provider_config = Some(ProviderConfig {
             health_check_url: Some("http://test.com".to_string()),
             health_check_interval: Some(600),
@@ -479,16 +509,16 @@ mod tests {
         });
 
         let providers = generate_proxy_providers(&proxies, &provider_config);
-        
+
         assert_eq!(providers.len(), 1);
         assert!(providers.contains_key("test"));
-        
+
         match providers.get("test").unwrap() {
             ProxyProvider::Http(http_provider) => {
                 assert_eq!(http_provider.url, "https://example.com/clash");
                 assert_eq!(http_provider.path, Some("./proxies/test.yaml".to_string()));
                 assert_eq!(http_provider.common.interval, Some(7200));
-                
+
                 let health_check = http_provider.common.health_check.as_ref().unwrap();
                 assert_eq!(health_check.url, "http://test.com");
                 assert_eq!(health_check.interval, 600);
@@ -504,11 +534,11 @@ mod tests {
         proxies.insert("test".to_string(), "https://example.com/clash".to_string());
 
         let providers = generate_proxy_providers(&proxies, &None);
-        
+
         match providers.get("test").unwrap() {
             ProxyProvider::Http(http_provider) => {
                 assert_eq!(http_provider.common.interval, Some(DEFAULT_UPDATE_INTERVAL));
-                
+
                 let health_check = http_provider.common.health_check.as_ref().unwrap();
                 assert_eq!(health_check.url, DEFAULT_HEALTH_CHECK_URL);
                 assert_eq!(health_check.interval, DEFAULT_HEALTH_CHECK_INTERVAL);
@@ -566,7 +596,10 @@ mod tests {
         match provider {
             RuleProvider::Http(http_provider) => {
                 assert_eq!(http_provider.url, "https://example.com/rules.yaml");
-                assert_eq!(http_provider.path, Some("./rules/test-set.yaml".to_string()));
+                assert_eq!(
+                    http_provider.path,
+                    Some("./rules/test-set.yaml".to_string())
+                );
                 assert_eq!(http_provider.common.behavior, RuleSetBehavior::Classical);
                 assert_eq!(http_provider.common.interval, Some(3600));
             }
@@ -625,12 +658,14 @@ mod tests {
     #[test]
     fn test_validate_app_config_invalid_url() {
         let mut app_config = create_test_app_config();
-        app_config.proxies.insert("invalid".to_string(), "not-a-url".to_string());
-        
+        app_config
+            .proxies
+            .insert("invalid".to_string(), "not-a-url".to_string());
+
         let result = validate_app_config(&app_config);
         assert!(result.is_err());
         match result.unwrap_err() {
-            ConfigError::InvalidSubscriptionUrl(_) => {},
+            ConfigError::InvalidSubscriptionUrl(_) => {}
             _ => panic!("Expected InvalidSubscriptionUrl error"),
         }
     }
@@ -643,11 +678,11 @@ mod tests {
             value: "test.com".to_string(),
             target: "NonExistentGroup".to_string(),
         }));
-        
+
         let result = validate_app_config(&app_config);
         assert!(result.is_err());
         match result.unwrap_err() {
-            ConfigError::RuleProcessingFailed(_) => {},
+            ConfigError::RuleProcessingFailed(_) => {}
             _ => panic!("Expected RuleProcessingFailed error"),
         }
     }
@@ -672,7 +707,7 @@ mod tests {
     fn test_get_available_region_groups() {
         let app_config = create_test_app_config();
         let region_groups = get_available_region_groups(&app_config);
-        
+
         assert_eq!(region_groups.len(), 2); // HK 和 HK-Auto
         assert!(region_groups.contains(&"HK".to_string()));
         assert!(region_groups.contains(&"HK-Auto".to_string()));
@@ -681,7 +716,7 @@ mod tests {
     #[test]
     fn test_is_region_group_target() {
         let app_config = create_test_app_config();
-        
+
         assert!(is_region_group_target("HK", &app_config));
         assert!(is_region_group_target("HK-Auto", &app_config));
         assert!(!is_region_group_target("US", &app_config));
@@ -697,9 +732,9 @@ mod tests {
             target: "Proxies".to_string(),
             interval: Some(3600),
         };
-        
+
         assert!(validate_rule_set_config(&valid_rule_set).is_ok());
-        
+
         // 测试无效 URL
         let invalid_url_rule_set = RuleSetCfg {
             name: "test".to_string(),
@@ -708,9 +743,9 @@ mod tests {
             target: "Proxies".to_string(),
             interval: None,
         };
-        
+
         assert!(validate_rule_set_config(&invalid_url_rule_set).is_err());
-        
+
         // 测试空名称
         let empty_name_rule_set = RuleSetCfg {
             name: "".to_string(),
@@ -719,9 +754,9 @@ mod tests {
             target: "Proxies".to_string(),
             interval: None,
         };
-        
+
         assert!(validate_rule_set_config(&empty_name_rule_set).is_err());
-        
+
         // 测试无效间隔
         let invalid_interval_rule_set = RuleSetCfg {
             name: "test".to_string(),
@@ -730,7 +765,7 @@ mod tests {
             target: "Proxies".to_string(),
             interval: Some(30), // 小于 60 秒
         };
-        
+
         assert!(validate_rule_set_config(&invalid_interval_rule_set).is_err());
     }
 
@@ -743,9 +778,9 @@ mod tests {
             target: "Proxies".to_string(),
             interval: Some(3600),
         };
-        
+
         assert_eq!(get_rule_set_update_interval(&rule_set_with_interval), 3600);
-        
+
         let rule_set_without_interval = RuleSetCfg {
             name: "test".to_string(),
             url: "https://example.com/rules.yaml".to_string(),
@@ -753,7 +788,10 @@ mod tests {
             target: "Proxies".to_string(),
             interval: None,
         };
-        
-        assert_eq!(get_rule_set_update_interval(&rule_set_without_interval), DEFAULT_RULE_UPDATE_INTERVAL);
+
+        assert_eq!(
+            get_rule_set_update_interval(&rule_set_without_interval),
+            DEFAULT_RULE_UPDATE_INTERVAL
+        );
     }
 }

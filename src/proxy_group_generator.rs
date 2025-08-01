@@ -137,7 +137,7 @@ impl ProxyGroupTemplateGenerator {
     /// 应用全局过滤器到地区过滤器
     pub fn apply_global_filter(region_filter: &str, global_filter: Option<&str>) -> String {
         match global_filter {
-            Some(global) => format!("({}).*{}", region_filter, global),
+            Some(global) => format!("({region_filter}).*{global}"),
             None => region_filter.to_string(),
         }
     }

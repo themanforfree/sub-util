@@ -265,7 +265,7 @@ target = "Proxies"
     assert!(yaml_content.contains("filter:"));
     assert!(yaml_content.contains("use:"));
     
-    println!("Generated YAML:\n{}", yaml_content);
+    println!("Generated YAML:\n{yaml_content}");
 }
 
 #[test]

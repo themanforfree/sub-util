@@ -53,18 +53,18 @@ target = "Proxies"
         match provider {
             sub_util::ProxyProvider::Http(http_provider) => {
                 // 验证必需字段
-                assert!(!http_provider.url.is_empty(), "Provider {} missing URL", name);
-                assert!(http_provider.path.is_some(), "Provider {} missing path", name);
+                assert!(!http_provider.url.is_empty(), "Provider {name} missing URL");
+                assert!(http_provider.path.is_some(), "Provider {name} missing path");
                 
                 // 验证健康检查配置
                 if let Some(health_check) = &http_provider.common.health_check {
-                    assert!(!health_check.url.is_empty(), "Provider {} health check missing URL", name);
-                    assert!(health_check.interval > 0, "Provider {} health check interval must be positive", name);
+                    assert!(!health_check.url.is_empty(), "Provider {name} health check missing URL");
+                    assert!(health_check.interval > 0, "Provider {name} health check interval must be positive");
                 }
                 
                 // 验证更新间隔
                 if let Some(interval) = http_provider.common.interval {
-                    assert!(interval > 0, "Provider {} update interval must be positive", name);
+                    assert!(interval > 0, "Provider {name} update interval must be positive");
                 }
             }
             _ => panic!("Only HTTP providers are currently supported"),
@@ -183,10 +183,10 @@ target = "Proxies"
     assert!(reparsed.is_mapping(), "Root should be a mapping");
     
     let root_map = reparsed.as_mapping().unwrap();
-    assert!(root_map.contains_key(&serde_yaml::Value::String("mixed-port".to_string())));
-    assert!(root_map.contains_key(&serde_yaml::Value::String("proxy-providers".to_string())));
-    assert!(root_map.contains_key(&serde_yaml::Value::String("proxy-groups".to_string())));
-    assert!(root_map.contains_key(&serde_yaml::Value::String("rules".to_string())));
+    assert!(root_map.contains_key(serde_yaml::Value::String("mixed-port".to_string())));
+    assert!(root_map.contains_key(serde_yaml::Value::String("proxy-providers".to_string())));
+    assert!(root_map.contains_key(serde_yaml::Value::String("proxy-groups".to_string())));
+    assert!(root_map.contains_key(serde_yaml::Value::String("rules".to_string())));
 }
 
 #[test]
@@ -342,15 +342,12 @@ test = "https://example.com/clash"
     
     // 验证健康检查 URL 是有效的
     let providers = clash_config.proxy_providers.unwrap();
-    for (_, provider) in &providers {
-        match provider {
-            sub_util::ProxyProvider::Http(http_provider) => {
-                if let Some(health_check) = &http_provider.common.health_check {
-                    assert!(health_check.url.starts_with("http://") || health_check.url.starts_with("https://"));
-                    assert!(health_check.interval >= 60, "Health check interval should be at least 60 seconds");
-                }
+    for provider in providers.values() {
+        if let sub_util::ProxyProvider::Http(http_provider) = provider {
+            if let Some(health_check) = &http_provider.common.health_check {
+                assert!(health_check.url.starts_with("http://") || health_check.url.starts_with("https://"));
+                assert!(health_check.interval >= 60, "Health check interval should be at least 60 seconds");
             }
-            _ => {}
         }
     }
 }
