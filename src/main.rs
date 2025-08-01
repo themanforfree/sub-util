@@ -1,9 +1,10 @@
 use std::{path::PathBuf, process::exit};
 
-use axum::{extract::Query, routing::get, Extension, Router, response::Response, http::{StatusCode, HeaderMap, HeaderValue}};
+use axum::{Extension, Router, http::StatusCode, response::Response, routing::get};
 use clap::Parser;
-use serde::Deserialize;
-use sub_util::{generate_clash_config_with_validation, get_available_region_groups, AppConfig, ConfigError};
+use sub_util::{
+    AppConfig, ConfigError, generate_clash_config_with_validation, get_available_region_groups,
+};
 use tracing::error;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -17,42 +18,23 @@ struct Args {
     bind: String,
 }
 
-#[derive(Deserialize)]
-struct QueryParams {
-    url: Option<String>,
-}
-
-async fn hello_world(
-    Extension(mut app_config): Extension<AppConfig>,
-    Query(params): Query<QueryParams>,
-) -> Response<String> {
-    // 如果提供了 url 参数，替换 proxy provider
-    if let Some(url) = params.url {
-        app_config.proxies.insert("miaona".to_string(), url);
-    }
-
+async fn hello_world(Extension(app_config): Extension<AppConfig>) -> Response<String> {
     match generate_clash_config_with_validation(app_config) {
-        Ok(clash_config) => {
-            match serde_yaml::to_string(&clash_config) {
-                Ok(yaml) => {
-                    let mut headers = HeaderMap::new();
-                    headers.insert("content-type", HeaderValue::from_static("text/yaml; charset=utf-8"));
-                    headers.insert("content-disposition", HeaderValue::from_static("attachment; filename=clash.yaml"));
-                    
-                    Response::builder()
-                        .status(StatusCode::OK)
-                        .body(yaml)
-                        .unwrap()
-                }
-                Err(err) => {
-                    error!("Failed to serialize clash config: {}", err);
-                    Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body("Failed to serialize clash config".to_string())
-                        .unwrap()
-                }
+        Ok(clash_config) => match serde_yaml::to_string(&clash_config) {
+            Ok(yaml) => Response::builder()
+                .status(StatusCode::OK)
+                .header("content-type", "text/yaml; charset=utf-8")
+                .header("content-disposition", "attachment; filename=sub.yaml")
+                .body(yaml)
+                .unwrap(),
+            Err(err) => {
+                error!("Failed to serialize clash config: {}", err);
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body("Failed to serialize clash config".to_string())
+                    .unwrap()
             }
-        }
+        },
         Err(err) => {
             error!("Failed to generate clash config: {}", err);
             create_error_response(&err)
@@ -60,14 +42,12 @@ async fn hello_world(
     }
 }
 
-async fn get_config_info(
-    Extension(app_config): Extension<AppConfig>,
-) -> Response<String> {
+async fn get_config_info(Extension(app_config): Extension<AppConfig>) -> Response<String> {
     use serde_json::json;
-    
+
     let region_groups = get_available_region_groups(&app_config);
     let proxy_providers: Vec<String> = app_config.proxies.keys().cloned().collect();
-    
+
     let info = json!({
         "proxy_providers": proxy_providers,
         "region_groups": region_groups,
@@ -81,15 +61,13 @@ async fn get_config_info(
         "rules_count": app_config.rules.len(),
         "region_groups_enabled": app_config.region_groups.as_ref().map(|r| r.enabled).unwrap_or(false)
     });
-    
+
     match serde_json::to_string_pretty(&info) {
-        Ok(json) => {
-            Response::builder()
-                .status(StatusCode::OK)
-                .header("content-type", "application/json")
-                .body(json)
-                .unwrap()
-        }
+        Ok(json) => Response::builder()
+            .status(StatusCode::OK)
+            .header("content-type", "application/json")
+            .body(json)
+            .unwrap(),
         Err(err) => {
             error!("Failed to serialize config info: {}", err);
             Response::builder()
@@ -146,21 +124,28 @@ async fn main() {
 }
 fn create_error_response(error: &ConfigError) -> Response<String> {
     use serde_json::json;
-    
+
     let (status_code, error_type) = match error {
-        ConfigError::InvalidSubscriptionUrl(_) => (StatusCode::BAD_REQUEST, "invalid_subscription_url"),
-        ConfigError::ProxyGroupGenerationFailed(_) => (StatusCode::INTERNAL_SERVER_ERROR, "proxy_group_generation_failed"),
+        ConfigError::InvalidSubscriptionUrl(_) => {
+            (StatusCode::BAD_REQUEST, "invalid_subscription_url")
+        }
+        ConfigError::ProxyGroupGenerationFailed(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "proxy_group_generation_failed",
+        ),
         ConfigError::RuleProcessingFailed(_) => (StatusCode::BAD_REQUEST, "rule_processing_failed"),
-        ConfigError::ConfigValidationFailed(_) => (StatusCode::BAD_REQUEST, "config_validation_failed"),
+        ConfigError::ConfigValidationFailed(_) => {
+            (StatusCode::BAD_REQUEST, "config_validation_failed")
+        }
     };
-    
+
     let error_response = json!({
         "error": {
             "type": error_type,
             "message": error.to_string()
         }
     });
-    
+
     Response::builder()
         .status(status_code)
         .header("content-type", "application/json")

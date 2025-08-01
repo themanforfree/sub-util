@@ -101,10 +101,9 @@ pub fn generate_clash_config(app_config: AppConfig) -> Config {
     // 生成地区代理组（如果启用）
     let region_groups = if let Some(region_config) = &app_config.region_groups {
         if region_config.enabled {
-            ProxyGroupTemplateGenerator::generate_region_groups(
-                &proxy_providers.keys().cloned().collect::<Vec<_>>(),
-                region_config,
-            )
+            let mut provider_names: Vec<String> = proxy_providers.keys().cloned().collect();
+            provider_names.sort(); // 确保提供者顺序一致
+            ProxyGroupTemplateGenerator::generate_region_groups(&provider_names, region_config)
         } else {
             Vec::new()
         }
