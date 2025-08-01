@@ -1,0 +1,65 @@
+# 简化的 Clash 订阅合并配置示例
+# 适合快速开始使用
+
+# 基本设置
+[default-config]
+mixed-port = 7890
+allow-lan = true
+mode = "rule"
+log-level = "info"
+
+# 启用地区代理组（使用默认设置）
+[region-groups]
+enabled = true
+create-auto-groups = true
+
+# 添加你的订阅链接
+[proxies]
+# 替换为你的实际订阅链接
+my-subscription = "https://your-subscription-url-here"
+
+# 基本代理组
+[[groups]]
+name = "Proxies"
+type = "select"
+proxies = ["Auto", "HK", "US", "JP", "DIRECT"]
+
+[[groups]]
+name = "Auto"
+type = "url-test"
+use = ["my-subscription"]
+url = "http://www.gstatic.com/generate_204"
+interval = 300
+
+# 基本规则
+[[rules]]
+name = "ad"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt"
+behavior = "domain"
+target = "REJECT"
+
+[[rules]]
+name = "direct"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt"
+behavior = "domain"
+target = "DIRECT"
+
+[[rules]]
+name = "proxy"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/proxy.txt"
+behavior = "domain"
+target = "Proxies"
+
+[[rules]]
+type = "single"
+tag = "GEOIP"
+value = "CN"
+target = "DIRECT"
+
+[[rules]]
+type = "single"
+tag = "MATCH"
+target = "Proxies"

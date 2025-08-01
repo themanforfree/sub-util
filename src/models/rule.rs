@@ -3,7 +3,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 // TODO: Use meaningful types instead of strings
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "SCREAMING-KEBAB-CASE")]
 pub enum RuleTag {
     Domain,

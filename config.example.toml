@@ -1,0 +1,289 @@
+# Clash 订阅合并工具配置示例
+# 这个文件展示了所有可用的配置选项
+
+# 默认配置 - 这些设置会应用到生成的 Clash 配置中
+[default-config]
+# HTTP 代理端口
+port = 7890
+# SOCKS5 代理端口  
+socks-port = 7891
+# 混合代理端口（HTTP + SOCKS5）
+mixed-port = 7892
+# 运行模式：rule（规则模式）、global（全局模式）、direct（直连模式）
+mode = "rule"
+# 日志级别：trace、debug、info、warning、error、silent
+log-level = "info"
+# 是否允许局域网连接
+allow-lan = true
+
+# Proxy Provider 配置 - 控制订阅源的行为
+[provider-config]
+# 健康检查 URL
+health-check-url = "http://www.gstatic.com/generate_204"
+# 健康检查间隔（秒）
+health-check-interval = 300
+# 订阅更新间隔（秒）
+update-interval = 3600
+# 是否延迟加载（首次使用时才进行健康检查）
+lazy = true
+
+# 地区代理组配置
+[region-groups]
+# 是否启用地区代理组自动生成
+enabled = true
+# 是否为每个地区创建自动测试组（如 HK-Auto）
+create-auto-groups = true
+# 全局过滤器（可选，会应用到所有地区过滤器）
+# global-filter = "some-pattern"
+
+# 自定义地区模板（可选，如果不配置则使用内置模板）
+[[region-groups.regions]]
+name = "HK"
+display-name = "香港"
+filter = "(?i)(hk|hong kong|香港|港)"
+icon = "🇭🇰"
+
+[[region-groups.regions]]
+name = "US"
+display-name = "美国"
+filter = "(?i)(us|usa|united states|美国|美)"
+icon = "🇺🇸"
+
+[[region-groups.regions]]
+name = "JP"
+display-name = "日本"
+filter = "(?i)(jp|japan|日本|日)"
+icon = "🇯🇵"
+
+[[region-groups.regions]]
+name = "SG"
+display-name = "新加坡"
+filter = "(?i)(sg|singapore|新加坡|新)"
+icon = "🇸🇬"
+
+[[region-groups.regions]]
+name = "TW"
+display-name = "台湾"
+filter = "(?i)(tw|taiwan|台湾|台)"
+icon = "🇹🇼"
+
+[[region-groups.regions]]
+name = "KR"
+display-name = "韩国"
+filter = "(?i)(kr|korea|韩国|韩)"
+icon = "🇰🇷"
+
+# 订阅源配置 - 添加你的 Clash 订阅链接
+[proxies]
+# 订阅源名称 = "订阅链接"
+provider1 = "https://example1.com/clash/subscription"
+provider2 = "https://example2.com/clash/subscription"
+# 可以添加更多订阅源
+# provider3 = "https://example3.com/clash/subscription"
+
+# 用户自定义代理组
+# 这些代理组会与自动生成的地区代理组合并
+
+# 全局代理选择组
+[[groups]]
+name = "Proxies"
+type = "select"
+# 可以引用地区代理组
+proxies = ["Auto", "HK", "US", "JP", "SG", "DIRECT"]
+
+# 全局自动测试组
+[[groups]]
+name = "Auto"
+type = "url-test"
+# 使用所有 provider 的节点
+use = ["provider1", "provider2"]
+url = "http://www.gstatic.com/generate_204"
+interval = 300
+
+# 服务特定代理组
+[[groups]]
+name = "OpenAI"
+type = "select"
+# 优先使用美国节点
+proxies = ["US", "US-Auto", "Proxies"]
+
+[[groups]]
+name = "Netflix"
+type = "select"
+# 支持 Netflix 的地区
+proxies = ["HK", "US", "JP", "SG"]
+
+[[groups]]
+name = "Apple"
+type = "select"
+# Apple 服务建议直连或使用香港节点
+proxies = ["DIRECT", "HK", "US"]
+
+[[groups]]
+name = "Telegram"
+type = "select"
+proxies = ["Proxies", "HK", "US", "SG"]
+
+[[groups]]
+name = "Microsoft"
+type = "select"
+proxies = ["DIRECT", "Proxies"]
+
+[[groups]]
+name = "Games"
+type = "select"
+# 游戏建议使用低延迟节点
+proxies = ["DIRECT", "HK-Auto", "JP-Auto", "KR-Auto"]
+
+# 规则配置
+# 支持单个规则和规则集
+
+# 单个规则示例
+[[rules]]
+type = "single"
+tag = "DOMAIN"
+value = "example.com"
+target = "DIRECT"
+
+[[rules]]
+type = "single"
+tag = "DOMAIN-SUFFIX"
+value = "google.com"
+target = "Proxies"
+
+[[rules]]
+type = "single"
+tag = "DOMAIN-KEYWORD"
+value = "github"
+target = "Proxies"
+
+# 规则集示例
+[[rules]]
+name = "ad"
+type = "set"
+url = "https://raw.githubusercontent.com/earoftoast/clash-rules/main/AD.yaml"
+behavior = "domain"
+target = "REJECT"
+# 可选：自定义更新间隔（秒）
+interval = 86400
+
+[[rules]]
+name = "openai"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/OpenAI/OpenAI.yaml"
+behavior = "classical"
+target = "OpenAI"
+
+[[rules]]
+name = "netflix"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Netflix/Netflix.yaml"
+behavior = "classical"
+target = "Netflix"
+
+[[rules]]
+name = "apple"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/apple.txt"
+behavior = "domain"
+target = "Apple"
+
+[[rules]]
+name = "microsoft"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Microsoft/Microsoft.yaml"
+behavior = "classical"
+target = "Microsoft"
+
+[[rules]]
+name = "telegram"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Telegram/Telegram.yaml"
+behavior = "classical"
+target = "Telegram"
+
+[[rules]]
+name = "games"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Game/Game.yaml"
+behavior = "classical"
+target = "Games"
+
+# 广告拦截规则集
+[[rules]]
+name = "reject"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt"
+behavior = "domain"
+target = "REJECT"
+
+# 国内直连规则集
+[[rules]]
+name = "direct"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt"
+behavior = "domain"
+target = "DIRECT"
+
+[[rules]]
+name = "private"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/private.txt"
+behavior = "domain"
+target = "DIRECT"
+
+# 需要代理的规则集
+[[rules]]
+name = "proxy"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/proxy.txt"
+behavior = "domain"
+target = "Proxies"
+
+[[rules]]
+name = "gfw"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt"
+behavior = "domain"
+target = "Proxies"
+
+# IP 规则集
+[[rules]]
+name = "telegramcidr"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/telegramcidr.txt"
+behavior = "ipcidr"
+target = "Telegram"
+
+[[rules]]
+name = "cncidr"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/cncidr.txt"
+behavior = "ipcidr"
+target = "DIRECT"
+
+[[rules]]
+name = "lancidr"
+type = "set"
+url = "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/lancidr.txt"
+behavior = "ipcidr"
+target = "DIRECT"
+
+# 兜底规则
+[[rules]]
+type = "single"
+tag = "GEOIP"
+value = "LAN"
+target = "DIRECT"
+
+[[rules]]
+type = "single"
+tag = "GEOIP"
+value = "CN"
+target = "DIRECT"
+
+# 最终匹配规则
+[[rules]]
+type = "single"
+tag = "MATCH"
+target = "Proxies"

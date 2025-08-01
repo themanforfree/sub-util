@@ -57,7 +57,7 @@ pub struct InlineRuleProvider {
     pub common: RuleProviderCommon,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, Default, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum RuleSetBehavior {
     #[default]

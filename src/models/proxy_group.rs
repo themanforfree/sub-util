@@ -83,4 +83,6 @@ pub struct ProxyGroupCommon {
     pub disable_udp: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filter: Option<String>,
 }
