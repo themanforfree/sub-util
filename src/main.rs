@@ -126,7 +126,7 @@ async fn main() {
         }
     };
     let router = Router::new()
-        .route("/", get(hello_world))
+        .route("/subs", get(hello_world))
         .route("/config", get(get_config_info))
         .layer(Extension(app_config));
 
