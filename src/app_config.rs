@@ -85,6 +85,8 @@ pub struct AppConfig {
     pub default_config: Option<DefaultConfig>,
     #[serde(default)]
     pub provider_config: Option<ProviderConfig>,
+    #[serde(default)]
+    pub auth: Option<AuthConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -149,6 +151,15 @@ pub struct ProviderConfig {
     pub update_interval: Option<u64>,
     #[serde(default)]
     pub lazy: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct AuthConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub token: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -467,5 +478,53 @@ lazy = true
         assert_eq!(config.lazy, Some(true));
         assert_eq!(config.health_check_url, None);
         assert_eq!(config.update_interval, None);
+    }
+
+    #[test]
+    fn test_auth_config_deserialization() {
+        let toml_content = r#"
+enabled = true
+token = "test-token-123"
+"#;
+        
+        let config: AuthConfig = toml::from_str(toml_content).unwrap();
+        assert!(config.enabled);
+        assert_eq!(config.token, Some("test-token-123".to_string()));
+    }
+
+    #[test]
+    fn test_auth_config_disabled() {
+        let toml_content = r#"
+enabled = false
+"#;
+        
+        let config: AuthConfig = toml::from_str(toml_content).unwrap();
+        assert!(!config.enabled);
+        assert_eq!(config.token, None);
+    }
+
+    #[test]
+    fn test_app_config_with_auth() {
+        let config_content = r#"
+[auth]
+enabled = true
+token = "secret-token"
+
+[proxies]
+test = "https://example.com/clash"
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(config_content.as_bytes()).unwrap();
+        
+        let config = AppConfig::load_from_file(temp_file.path()).unwrap();
+        
+        // 检查认证配置
+        let auth_config = config.auth.unwrap();
+        assert!(auth_config.enabled);
+        assert_eq!(auth_config.token, Some("secret-token".to_string()));
+        
+        // 检查其他配置
+        assert_eq!(config.proxies.len(), 1);
     }
 }
