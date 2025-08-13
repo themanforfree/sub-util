@@ -492,6 +492,7 @@ mod tests {
                 update_interval: Some(7200),
                 lazy: Some(false),
             }),
+            auth: None,
         }
     }
 

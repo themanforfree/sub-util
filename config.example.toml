@@ -16,6 +16,14 @@ log-level = "info"
 # 是否允许局域网连接
 allow-lan = true
 
+# 认证配置 - 用于保护订阅内容
+[auth]
+# 是否启用 token 认证（默认为 false）
+enabled = true
+# token 值（当 enabled = true 时必须设置）
+# 使用方式：http://your-server:3000/?token=your-secret-token-here
+token = "your-secret-token-here"
+
 # Proxy Provider 配置 - 控制订阅源的行为
 [provider-config]
 # 健康检查 URL

@@ -1,5 +1,4 @@
-# 简化的 Clash 订阅合并配置示例
-# 适合快速开始使用
+# Test configuration with authentication enabled
 
 # 基本设置
 [default-config]
@@ -8,12 +7,10 @@ allow-lan = true
 mode = "rule"
 log-level = "info"
 
-# 认证配置
+# 认证配置 - 启用 token 验证
 [auth]
-# 是否启用 token 认证（默认为 false）
-enabled = false
-# token 值（当 enabled = true 时必须设置）
-# token = "your-secret-token-here"
+enabled = true
+token = "test-secret-token-123"
 
 # 启用地区代理组（使用默认设置）
 [region-groups]
@@ -22,7 +19,6 @@ create-auto-groups = true
 
 # 添加你的订阅链接
 [proxies]
-# 替换为你的实际订阅链接
 my-subscription = "https://your-subscription-url-here"
 
 # 基本代理组

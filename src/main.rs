@@ -1,7 +1,8 @@
 use std::{path::PathBuf, process::exit};
 
-use axum::{Extension, Router, http::StatusCode, response::Response, routing::get};
+use axum::{Extension, Router, http::StatusCode, response::Response, routing::get, extract::Query};
 use clap::Parser;
+use serde::Deserialize;
 use sub_util::{
     AppConfig, ConfigError, generate_clash_config_with_validation, get_available_region_groups,
 };
@@ -18,7 +19,20 @@ struct Args {
     bind: String,
 }
 
-async fn hello_world(Extension(app_config): Extension<AppConfig>) -> Response<String> {
+#[derive(Deserialize)]
+struct TokenQuery {
+    token: Option<String>,
+}
+
+async fn hello_world(
+    Extension(app_config): Extension<AppConfig>,
+    Query(query): Query<TokenQuery>,
+) -> Response<String> {
+    // Check token authentication
+    if let Err(response) = validate_token(&app_config, &query) {
+        return response;
+    }
+
     match generate_clash_config_with_validation(app_config) {
         Ok(clash_config) => match serde_yaml::to_string(&clash_config) {
             Ok(yaml) => Response::builder()
@@ -42,7 +56,15 @@ async fn hello_world(Extension(app_config): Extension<AppConfig>) -> Response<St
     }
 }
 
-async fn get_config_info(Extension(app_config): Extension<AppConfig>) -> Response<String> {
+async fn get_config_info(
+    Extension(app_config): Extension<AppConfig>,
+    Query(query): Query<TokenQuery>,
+) -> Response<String> {
+    // Check token authentication
+    if let Err(response) = validate_token(&app_config, &query) {
+        return response;
+    }
+
     use serde_json::json;
 
     let region_groups = get_available_region_groups(&app_config);
@@ -148,6 +170,49 @@ fn create_error_response(error: &ConfigError) -> Response<String> {
 
     Response::builder()
         .status(status_code)
+        .header("content-type", "application/json")
+        .body(error_response.to_string())
+        .unwrap()
+}
+
+fn validate_token(app_config: &AppConfig, query: &TokenQuery) -> Result<(), Response<String>> {
+    // Check if authentication is enabled
+    if let Some(auth_config) = &app_config.auth {
+        if auth_config.enabled {
+            // Authentication is enabled, check for token
+            let provided_token = query.token.as_deref().unwrap_or("");
+            let expected_token = auth_config.token.as_deref().unwrap_or("");
+            
+            if expected_token.is_empty() {
+                error!("Authentication is enabled but no token is configured");
+                return Err(create_unauthorized_response("Server configuration error"));
+            }
+            
+            if provided_token.is_empty() {
+                return Err(create_unauthorized_response("Token required"));
+            }
+            
+            if provided_token != expected_token {
+                return Err(create_unauthorized_response("Invalid token"));
+            }
+        }
+    }
+    // If authentication is not configured or disabled, allow access
+    Ok(())
+}
+
+fn create_unauthorized_response(message: &str) -> Response<String> {
+    use serde_json::json;
+    
+    let error_response = json!({
+        "error": {
+            "type": "unauthorized",
+            "message": message
+        }
+    });
+
+    Response::builder()
+        .status(StatusCode::UNAUTHORIZED)
         .header("content-type", "application/json")
         .body(error_response.to_string())
         .unwrap()
